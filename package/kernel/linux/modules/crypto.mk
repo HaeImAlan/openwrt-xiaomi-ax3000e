@@ -112,8 +112,8 @@ define KernelPackage/crypto-crc32
   DEPENDS:=+kmod-crypto-hash
   KCONFIG:=CONFIG_CRYPTO_CRC32
   HIDDEN:=1
-  FILES:=$(LINUX_DIR)/crypto/crc32_generic.ko
-  AUTOLOAD:=$(call AutoLoad,04,crc32_generic,1)
+  FILES:=$(LINUX_DIR)/crypto/$(if $(call kernel_patchver_lt,4.7),crc32,crc32_generic).ko
+  AUTOLOAD:=$(call AutoLoad,04,$(if $(call kernel_patchver_lt,4.7),crc32,crc32_generic),1)
   $(call AddDepends/crypto)
 endef
 
@@ -173,7 +173,7 @@ define KernelPackage/crypto-des
   KCONFIG:=CONFIG_CRYPTO_DES
   FILES:= \
 	$(LINUX_DIR)/crypto/des_generic.ko \
-	$(LINUX_DIR)/lib/crypto/libdes.ko
+	$(if $(call kernel_patchver_ge,5.4),$(LINUX_DIR)/lib/crypto/libdes.ko)
   AUTOLOAD:=$(call AutoLoad,09,des_generic)
   $(call AddDepends/crypto)
 endef
@@ -881,7 +881,7 @@ define KernelPackage/crypto-sha256
 	CONFIG_CRYPTO_SHA256_SSSE3
   FILES:= \
 	$(LINUX_DIR)/crypto/sha256_generic.ko \
-	$(LINUX_DIR)/lib/crypto/libsha256.ko
+	$(if $(call kernel_patchver_ge,5.4),$(LINUX_DIR)/lib/crypto/libsha256.ko)
   AUTOLOAD:=$(call AutoLoad,09,sha256_generic)
   $(call AddDepends/crypto)
 endef
