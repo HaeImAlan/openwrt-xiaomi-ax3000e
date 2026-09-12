@@ -94,14 +94,14 @@ jobs:
       - name: Let git trust the workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Hook the openwrt_core URL for opkg
+      # %R (the `version` file) names this build's directory on gh-pages, so
+      # every image's opkg feeds point at the packages built from its own
+      # kernel. The feed URL itself is CONFIG_VERSION_FORK_REPO, set below.
+      - name: Set the build version
         run: |
-          OWNER="${GITHUB_REPOSITORY%%/*}"
-          REPO="${GITHUB_REPOSITORY#*/}"
           TIME="$(curl "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" | jq -r .created_at)"
 
           echo "ci-$(date -d "${TIME}" -u +'%Y%m%d-%H%M%S')-${GITHUB_SHA:0:8}" >version
-          sed -i "s|%U/targets/%S/packages|https://${OWNER}.github.io/${REPO}/${GITHUB_REF_NAME}/%R|" include/feeds.mk
 
       - name: Update and install feeds
         run: |
@@ -110,6 +110,8 @@ jobs:
 
       - name: Configure
         run: |
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
           cat <<EOF | sed -E 's/^  //' >.config
             CONFIG_TARGET_ipq50xx=y
             CONFIG_TARGET_ipq50xx_arm=y
@@ -125,12 +127,166 @@ jobs:
             CONFIG_MAKE_TOOLCHAIN=y
 
             CONFIG_REPRODUCIBLE_DEBUG_INFO=y
+            CONFIG_BUILD_LOG=y
+
+            # Feeds embedded in the image. Upstream never published this
+            # target, so kernel modules and the fork-only packages come from
+            # this repo's gh-pages, one directory per build (%R).
+            CONFIG_VERSION_FORK_REPO="https://${OWNER,,}.github.io/${REPO}/${GITHUB_REF_NAME}/%R"
 
             CONFIG_PACKAGE_kmod-qca-nss-ecm-standard=y
             CONFIG_PACKAGE_kmod-qca-nss-drv-pppoe=y
 
             CONFIG_PACKAGE_luci=y
-            CONFIG_PACKAGE_kmod-nft-bridge=y
+
+            # Build every kernel module as a package (=m) so the feed can
+            # install them later; the image itself stays lean. Modules that
+            # do not build against the QSDK 4.4 kernel are skipped, see
+            # IGNORE_ERRORS below.
+            CONFIG_ALL_KMODS=y
+            # Not buildable on the QSDK 4.4 kernel. sg.c and pwc fail to
+            # compile inside the kernel; the rest package modules that 4.4
+            # does not have. Explicit "not set" beats the ALL_KMODS default.
+            # CONFIG_PACKAGE_kmod-scsi-generic is not set
+            # CONFIG_PACKAGE_kmod-video-pwc is not set
+            # CONFIG_PACKAGE_kmod-drm is not set
+            # CONFIG_PACKAGE_kmod-iio-hmc5843 is not set
+            # CONFIG_PACKAGE_kmod-can is not set
+            # CONFIG_PACKAGE_kmod-iavf is not set
+            # CONFIG_PACKAGE_kmod-net-prism54 is not set
+            # CONFIG_PACKAGE_kmod-nvme is not set
+            # CONFIG_PACKAGE_kmod-gpio-mcp23s08 is not set
+            # CONFIG_PACKAGE_kmod-serial-8250 is not set
+            # CONFIG_PACKAGE_kmod-nft-netdev is not set
+            # CONFIG_PACKAGE_kmod-nf-ipvs-sip is not set
+            # Other ECM variants of the =y standard one; they need nat46
+            # headers that are not there, and only one ECM can be loaded.
+            # CONFIG_PACKAGE_kmod-qca-nss-ecm-noload is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-ecm-premium is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-ecm-premium-noload is not set
+            # Selecting kmod-nat46 at all makes qca-nss-ecm compile in MAP-T
+            # support, which needs nat46 headers this nat46 package does not
+            # export. Keep ECM in the image identical: leave nat46 out.
+            # CONFIG_PACKAGE_kmod-nat46 is not set
+            # NSS client kmods other than the two this tree has always built
+            # (pppoe, wifi-meshmgr). Several need headers from NSS packages
+            # that are not in this tree (nss_cryptoapi.h, nat46-core.h) and
+            # they all live in one source package with a =y member, so one
+            # failure would kill the whole build.
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-capwapmgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-clmapmgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-dtlsmgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-eogremgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-gre is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-igs is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-ipsecmgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-ipsecmgr-klips is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-ipsecmgr-xfrm is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2 is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-lag-mgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-map-t is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-match is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-mirror is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-mscs is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-netlink is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-ovpn-link is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-ovpn-mgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-pptp is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-profile is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-pvxlanmgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-tlsmgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-tun6rd is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-tunipip6 is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr is not set
+            # CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr is not set
+            # Variant of the =y qca-ssdk-nohnat.
+            # CONFIG_PACKAGE_kmod-qca-ssdk-hnat is not set
+            # Wireless drivers in the mac80211 (backports) package that do not
+            # compile against this 4.4 kernel: Broadcom bcma/ssb bus and the
+            # b43/brcm cards on them, Intel ipw2x00, Realtek rtl8821ae, and hwsim
+            # (needs virtio).
+            # kmod-ath11k and kmod-cfg80211 are =y in the same package.
+            # CONFIG_PACKAGE_kmod-bcma is not set
+            # CONFIG_PACKAGE_kmod-ssb is not set
+            # CONFIG_PACKAGE_kmod-b43 is not set
+            # CONFIG_PACKAGE_kmod-b43legacy is not set
+            # CONFIG_PACKAGE_kmod-b44 is not set
+            # CONFIG_PACKAGE_kmod-brcmsmac is not set
+            # CONFIG_PACKAGE_kmod-brcmfmac is not set
+            # CONFIG_PACKAGE_kmod-brcmutil is not set
+            # CONFIG_PACKAGE_kmod-ipw2100 is not set
+            # CONFIG_PACKAGE_kmod-ipw2200 is not set
+            # CONFIG_PACKAGE_kmod-libipw is not set
+            # CONFIG_PACKAGE_kmod-mac80211-hwsim is not set
+            # CONFIG_PACKAGE_kmod-rtl8821ae is not set
+            # lib80211's WEP helper module is not produced on 4.4; libertas
+            # would re-select it.
+            # CONFIG_PACKAGE_kmod-lib80211 is not set
+            # CONFIG_PACKAGE_kmod-libertas-sdio is not set
+            # CONFIG_PACKAGE_kmod-libertas-spi is not set
+            # CONFIG_PACKAGE_kmod-libertas-usb is not set
+            # Out-of-tree wireless drivers written for newer kernels; they do
+            # not compile against 4.4 headers (mt76 needs kthread_park etc.).
+            # CONFIG_PACKAGE_kmod-ath10k-ct is not set
+            # CONFIG_PACKAGE_kmod-ath10k-ct-smallbuffers is not set
+            # CONFIG_PACKAGE_kmod-rtl8812au-ct is not set
+            # CONFIG_PACKAGE_kmod-mt76-default is not set
+            # CONFIG_PACKAGE_kmod-mt76 is not set
+            # CONFIG_PACKAGE_kmod-mt76-core is not set
+            # CONFIG_PACKAGE_kmod-mt76-usb is not set
+            # CONFIG_PACKAGE_kmod-mt76x02-usb is not set
+            # CONFIG_PACKAGE_kmod-mt76x02-common is not set
+            # CONFIG_PACKAGE_kmod-mt76x0-common is not set
+            # CONFIG_PACKAGE_kmod-mt76x0e is not set
+            # CONFIG_PACKAGE_kmod-mt76x0u is not set
+            # CONFIG_PACKAGE_kmod-mt76x2-common is not set
+            # CONFIG_PACKAGE_kmod-mt76x2u is not set
+            # CONFIG_PACKAGE_kmod-mt76x2 is not set
+            # CONFIG_PACKAGE_kmod-mt7603 is not set
+            # CONFIG_PACKAGE_kmod-mt76-connac is not set
+            # CONFIG_PACKAGE_kmod-mt76-sdio is not set
+            # CONFIG_PACKAGE_kmod-mt7615-common is not set
+            # CONFIG_PACKAGE_kmod-mt7615-firmware is not set
+            # CONFIG_PACKAGE_kmod-mt7615e is not set
+            # CONFIG_PACKAGE_kmod-mt7663-firmware-ap is not set
+            # CONFIG_PACKAGE_kmod-mt7663-firmware-sta is not set
+            # CONFIG_PACKAGE_kmod-mt7663-usb-sdio is not set
+            # CONFIG_PACKAGE_kmod-mt7663s is not set
+            # CONFIG_PACKAGE_kmod-mt7663u is not set
+            # CONFIG_PACKAGE_kmod-mt7915e is not set
+            # CONFIG_PACKAGE_kmod-mt7921-common is not set
+            # CONFIG_PACKAGE_kmod-mt7921s is not set
+            # CONFIG_PACKAGE_kmod-mt7921e is not set
+            # PCIe server NICs whose modules need symbols 4.4 does not export
+            # CONFIG_PACKAGE_kmod-tg3 is not set
+            # CONFIG_PACKAGE_kmod-be2net is not set
+            # CONFIG_PACKAGE_kmod-mlx4-core is not set
+            # CONFIG_PACKAGE_kmod-sfc is not set
+            # Dependents of the above; they would re-select their parent.
+            # CONFIG_PACKAGE_kmod-drm-kms-helper is not set
+            # CONFIG_PACKAGE_kmod-drm-ttm is not set
+            # CONFIG_PACKAGE_kmod-drm-vc4 is not set
+            # CONFIG_PACKAGE_kmod-pcmcia-serial is not set
+            # CONFIG_PACKAGE_kmod-serial-8250-exar is not set
+
+            # kmod-qca-nss-drv-pppoe (=y) has a conditional dependency on
+            # kmod-bonding; with ALL_KMODS that becomes =m and a =y package
+            # cannot depend on an =m one (package/install fails). Leave it out.
+            # CONFIG_PACKAGE_kmod-bonding is not set
+            # This kernel's built-in bridge code calls br_netfilter_run_hooks()
+            # directly (QSDK change), so BRIDGE_NETFILTER=m fails to link
+            # vmlinux and =y would alter bridging in the image. ebtables needs
+            # br_netfilter on 4.4, so it goes too. nft-bridge is unaffected.
+            # CONFIG_PACKAGE_kmod-br-netfilter is not set
+            # CONFIG_PACKAGE_kmod-ebtables is not set
+            # CONFIG_PACKAGE_kmod-ebtables-ipv4 is not set
+            # CONFIG_PACKAGE_kmod-ebtables-ipv6 is not set
+            # CONFIG_PACKAGE_kmod-ebtables-watchers is not set
+
+            # Fork-only userspace packages, published to the fork feeds.
+            CONFIG_PACKAGE_luci-app-usteer=m
           EOF
           make defconfig
 
@@ -155,13 +311,31 @@ jobs:
 
       - name: Build all
         run: |
-          make -j$(nproc) || make -j1 V=sc
+          # IGNORE_ERRORS=m: a kernel module selected only by ALL_KMODS that
+          # fails to build is skipped instead of failing the run; anything
+          # the image needs (=y) still fails hard.
+          make -j$(nproc) IGNORE_ERRORS=m || make -j1 V=sc IGNORE_ERRORS=m
+
+      - name: Report skipped packages
+        run: |
+          if [ -s logs/package/error.txt ]; then
+            echo "::warning::packages skipped by IGNORE_ERRORS=m (see logs/package/*/compile.txt):"
+            sort -u logs/package/error.txt
+          else
+            echo "no packages were skipped"
+          fi
 
       - name: Upload bin to artifacts
         uses: actions/upload-artifact@v7
         with:
           name: bin-ipq50xx-arm
           path: bin/targets/ipq50xx/arm/*
+
+      - name: Upload packages to artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages-arm_cortex-a7_neon-vfpv4
+          path: bin/packages/arm_cortex-a7_neon-vfpv4/*
 
       - name: Upload dl to artifacts
         uses: actions/upload-artifact@v7
@@ -203,11 +377,23 @@ jobs:
           name: bin-ipq50xx-arm
           path: bin/
 
+      - name: Download packages from artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: packages-arm_cortex-a7_neon-vfpv4
+          path: pkgs/
+
+      # Mirrors the bin/ layout under <branch>/<version>/ so the feed lines
+      # in distfeeds.conf resolve as <FORK_REPO>/targets/%S/packages and
+      # <FORK_REPO>/packages/%A/<feed>.
       - name: Copy contents
         run: |
           version="$(cat "bin/version.buildinfo")"
-          mkdir -p "gh-pages/${GITHUB_REF_NAME}/${version}/"
-          cp -avr bin/packages/* "gh-pages/${GITHUB_REF_NAME}/${version}/"
+          dest="gh-pages/${GITHUB_REF_NAME}/${version}"
+          mkdir -p "${dest}/targets/ipq50xx/arm" "${dest}/packages/arm_cortex-a7_neon-vfpv4"
+          cp -ar bin/packages "${dest}/targets/ipq50xx/arm/"
+          cp -ar pkgs/. "${dest}/packages/arm_cortex-a7_neon-vfpv4/"
+          du -sh "${dest}"
 
       - name: Commit
         run: |
