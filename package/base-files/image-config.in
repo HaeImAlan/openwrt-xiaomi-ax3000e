@@ -202,6 +202,18 @@ if VERSIONOPT
 			 %P .. Product name or "Generic"
 			 %h .. Hardware revision or "v0"
 
+	config VERSION_FORK_REPO
+		string
+		prompt "Fork package repository"
+		default "https://haeimalan.github.io/openwrt/ipq50xx-qsdk-kernel-4.4-openwrt-21.02-qsdk-11.4.0.5.7418/%R"
+		help
+			Repository for the packages that only exist in this fork: the
+			kernel modules (openwrt_core, this target was never published
+			upstream) and the fork's own builds of the base/luci/packages
+			feeds. Everything else still comes from VERSION_REPO. Each build
+			is published under its own %R directory so kernel modules always
+			match the running kernel. Same placeholders as VERSION_REPO.
+
 	config VERSION_HOME_URL
 		string
 		prompt "Release Homepage"

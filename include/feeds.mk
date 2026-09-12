@@ -30,8 +30,11 @@ endef
 # 1: destination file
 define FeedSourcesAppend
 ( \
-  echo 'src/gz %d_core %U/targets/%S/packages'; \
+  echo 'src/gz %d_core $(VERSION_FORK_REPO)/targets/%S/packages'; \
   $(strip $(if $(CONFIG_PER_FEED_REPO), \
+	echo 'src/gz %d_fork_base $(VERSION_FORK_REPO)/packages/%A/base'; \
+	echo 'src/gz %d_fork_luci $(VERSION_FORK_REPO)/packages/%A/luci'; \
+	echo 'src/gz %d_fork_packages $(VERSION_FORK_REPO)/packages/%A/packages'; \
 	echo 'src/gz %d_base %U/packages/%A/base'; \
 	$(if $(filter %SNAPSHOT-y,$(VERSION_NUMBER)-$(CONFIG_BUILDBOT)), \
 		echo 'src/gz %d_kmods %U/targets/%S/kmods/$(LINUX_VERSION)-$(LINUX_RELEASE)-$(LINUX_VERMAGIC)';) \
