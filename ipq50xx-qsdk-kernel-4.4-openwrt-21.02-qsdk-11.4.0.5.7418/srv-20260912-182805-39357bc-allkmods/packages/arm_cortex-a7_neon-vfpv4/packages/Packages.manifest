@@ -1,0 +1,50 @@
+Package: cgi-io
+Version: 2022-08-10-901b0f04-21
+Depends: libc, libubox20210516, libubus20210630
+Source: feeds/packages/net/cgi-io
+SourceName: cgi-io
+License: GPL-2.0-or-later
+Section: net
+SourceDateEpoch: 1660168492
+Maintainer: John Crispin <blogic@openwrt.org>
+Architecture: arm_cortex-a7_neon-vfpv4
+Installed-Size: 8556
+Filename: cgi-io_2022-08-10-901b0f04-21_arm_cortex-a7_neon-vfpv4.ipk
+Size: 9372
+SHA256sum: 2fc33dcbaf95733c910459ccef4ef726df88c6b15efd3a12aa83dfc53d5e762e
+Description:  This package contains an cgi utility that is useful for up/downloading files
+
+Package: iperf3
+Version: 3.10.1-1
+Depends: libc
+Source: feeds/packages/net/iperf3
+SourceName: iperf3
+License: BSD-3-Clause
+Section: net
+SourceDateEpoch: 1622707798
+Maintainer: Felix Fietkau <nbd@nbd.name>
+Architecture: arm_cortex-a7_neon-vfpv4
+Installed-Size: 46385
+Filename: iperf3_3.10.1-1_arm_cortex-a7_neon-vfpv4.ipk
+Size: 47193
+SHA256sum: df21f664ac3c0aa720902eb40b86041bce3cbe1ea5ad277e95d68cd215788ab8
+Description:  Iperf is a modern alternative for measuring TCP and UDP bandwidth
+ performance, allowing the tuning of various parameters and
+ characteristics.
+
+Package: usteer
+Version: 2022-05-17-7afab960-1
+Depends: libc, libubox20210516, libubus20210630, libblobmsg-json20210516, libnl-tiny1
+Source: feeds/packages/net/usteer
+SourceName: usteer
+License: GPL-2.0-only
+Section: net
+SourceDateEpoch: 1652957386
+Maintainer: David Bauer <mail@david-bauer.net>
+Architecture: arm_cortex-a7_neon-vfpv4
+Installed-Size: 29622
+Filename: usteer_2022-05-17-7afab960-1_arm_cortex-a7_neon-vfpv4.ipk
+Size: 30464
+SHA256sum: 39b072680ee2430bd134db679389f840378cb6bd7c54845dc3da955ab7d445d8
+Description:  OpenWrt AP roaming assist daemon
+
